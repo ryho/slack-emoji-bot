@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -59,12 +60,14 @@ var slackApi *slack.Client
 
 func main() {
 	slackApi = slack.New(botOauthToken)
+
 	allEmojis, err := getAllEmojis()
 	if err != nil {
 		panic(err)
 	}
 
-	err = printTopEmojis(lastWeekReactions, allEmojis)
+	// This will get the last new emoji, and print the top emojis reactions.
+	err = DealWithLastWeekMessages(allEmojis)
 	if err != nil {
 		panic(err)
 	}
@@ -120,6 +123,11 @@ const (
 	emojiListUrl = "https://square.slack.com/api/emoji.adminList"
 )
 
+var (
+	printer      = message.NewPrinter(language.English)
+	lastNewEmoji string
+)
+
 type MessageType int
 
 const (
@@ -130,22 +138,108 @@ const (
 	MSG_TYPE__PRINT_ONLY
 )
 
-// This takes in the copied text of a message from Slack, and prints the top Emoji reactions.
-func printTopEmojis(reactions string, allEmojis *SlackEmojiResponseMessage) error {
-	lines := strings.Split(reactions, "\n")
-	var emojis []*stringCount
-	for i := 0; i < len(lines); i++ {
-		line := lines[i]
-		if strings.HasPrefix(line, ":") && strings.HasSuffix(line, ":") {
-			if i+1 >= len(lines) {
-				continue
-			}
-			count, err := strconv.Atoi(lines[i+1])
-			if err != nil {
-				continue
-			}
-			emojis = append(emojis, &stringCount{name: line, count: count})
+func DealWithLastWeekMessages(allEmojis *SlackEmojiResponseMessage) error {
+	reactionMessage, lastEmojiMessage, err := findLastWeekMessages()
+	if err != nil {
+		return err
+	}
+	err = printTopEmojis(reactionMessage, allEmojis)
+	if err != nil {
+		return err
+	}
+	// Find the last emoji that was posted last week.
+	parts := strings.Split(lastEmojiMessage.Text, ":")
+	if len(parts) < 2 {
+		return fmt.Errorf("Unable to get last emoji from message %v", lastEmojiMessage)
+	}
+	lastNewEmoji = parts[len(parts)-2]
+	return nil
+}
+
+func findLastWeekMessages() (*slack.Message, *slack.Message, error) {
+	// Get the emojis channel
+	channelsParams := &slack.GetConversationsParameters{
+		ExcludeArchived: true,
+		Limit:           1000,
+	}
+	var emojiChannelData slack.Channel
+	for true {
+		channels, cursor, err := slackApi.GetConversations(channelsParams)
+		if err != nil {
+			return nil, nil, err
 		}
+		var found bool
+		for _, channel := range channels {
+			if channel.IsChannel && channel.Name == emojiChannel[1:] {
+				found = true
+				emojiChannelData = channel
+				break
+			}
+		}
+		if found {
+			break
+		}
+		if cursor == "" {
+			return nil, nil, errors.New("Unable to find channel " + emojiChannel)
+		}
+		channelsParams.Cursor = cursor
+	}
+
+	// Get the two messages that we need
+	conversationParams := &slack.GetConversationHistoryParameters{
+		ChannelID: emojiChannelData.ID,
+	}
+	var reactionMessage, lastEmojiMessage slack.Message
+	var foundOne, foundBoth bool
+	for true {
+		messages, err := slackApi.GetConversationHistory(conversationParams)
+		if err != nil {
+			return nil, nil, err
+		}
+		if foundOne {
+			if len(messages.Messages) == 0 {
+				return nil, nil, errors.New("Unable to find message " + emojiChannel)
+			}
+			lastEmojiMessage = messages.Messages[0]
+			foundBoth = true
+			break
+		}
+		for i, message := range messages.Messages {
+			if message.Text == lastMessage {
+				reactionMessage = message
+				foundOne = true
+				if len(messages.Messages) >= i {
+					lastEmojiMessage = messages.Messages[i+1]
+					foundBoth = true
+					break
+				}
+			}
+		}
+		if foundBoth {
+			break
+		}
+		if len(messages.ResponseMetadata.Cursor) == 0 {
+			return nil, nil, errors.New("Unable to find message in channel " + emojiChannel)
+		}
+		// Check if we have looked through 15 days
+		seconds, err := strconv.ParseFloat(messages.Messages[len(messages.Messages)-1].Timestamp, 64)
+		if err != nil {
+			return nil, nil, err
+		}
+		lastMessageTime := time.Unix(0, int64(float64(time.Second)*seconds))
+		if time.Since(lastMessageTime) > time.Hour*24*15 {
+			return nil, nil, errors.New("Unable to find message in channel " + emojiChannel + " in the last 15 days")
+		}
+		conversationParams.Cursor = messages.ResponseMetadata.Cursor
+	}
+	return &reactionMessage, &lastEmojiMessage, nil
+}
+
+// This takes in the copied text of a message from Slack, and prints the top Emoji reactions.
+func printTopEmojis(message *slack.Message, allEmojis *SlackEmojiResponseMessage) error {
+	var emojis []*stringCount
+	for _, reaction := range message.Reactions {
+		emojis = append(emojis, &stringCount{name: reaction.Name, count: reaction.Count})
 	}
 	sort.Sort(ByCount(emojis))
 
@@ -167,7 +261,7 @@ func printTopEmojis(reactions string, allEmojis *SlackEmojiResponseMessage) erro
 		if emoji.count < minReaction {
 			break
 		}
-		emojisObj := allEmojis.emojiMap[emoji.name[1:len(emoji.name)-1]]
+		emojisObj := allEmojis.emojiMap[emoji.name]
 		creators = append(creators, emojisObj.UserId)
 		counts = append(counts, emoji.count)
 		printedEmojis = append(printedEmojis, emoji.name)
@@ -177,10 +271,6 @@ func printTopEmojis(reactions string, allEmojis *SlackEmojiResponseMessage) erro
 
 	return printTopCreators(lastWeek, creators, counts, printedEmojis)
 }
-
-var (
-	printer = message.NewPrinter(language.English)
-)
 
 type SlackEmojiResponseMessage struct {
 	Ok       bool    `json:"ok"`
@@ -398,6 +488,7 @@ func removeSkippedEmojis(response *SlackEmojiResponseMessage) {
 func printMessage(level MessageType, text string) (string, error) {
 	return printMessageWithThreadId(level, text, "")
 }
+
 func printMessageWithThreadId(level MessageType, text string, threadId string) (string, error) {
 	switch level {
 	case MSG_TYPE__SEND:

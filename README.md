@@ -13,8 +13,6 @@ Features:
 
 TODO:
 - Stop using undocumented endpoint for fetching emojis, use the real API.
-- Automate finding last week's top emoji votes.
-- Automate finding the last new emoji from last week.
 - Detect people's first uploaded emoji and congratulate.
 - Rework how settings are configured. Currently, they are hardcoded in a Golang file.
 - Improve behavior when this is your first time running the script.
