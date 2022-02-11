@@ -19,23 +19,11 @@ const ownerUserId = "TODO"
 
 var additionalReviewerIds = []string{}
 
-// Visit https://square.slack.com/customize/emoji in Chrome.
-// Open the console, go to the network tab.
-// Sort by date on the emoji page, copy the network request to the emoji url as curl,
-// and paste that here
-// It should look like
-// curl 'https://square.slack.com/api/emoji.adminList?_x_id=bla \
-// -H 'bla'
-// ...
-const emojiCurl = `TODO`
+// TODO: Explain how to get this
+const botOauthToken = "TODO"
 
-// Look for a request to https://edgeapi.slack.com/cache/ABC/XYZ/users/info and copy as curl as well.
-// Do this to the updated_ids part:
-// "updated_ids":{INSERT_USER_IDS_HERE}}'
-const userCurl = `TODO`
-
-const oauthToken = "TODO"
-const emojiChannel = "#emojis"
+// TODO: Explain how to get this
+const ownerUserOauthToken = `TODO`
 
 // People really dislike pictures of some frog.
 // Sometimes you have to keep the peace...

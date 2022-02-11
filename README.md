@@ -12,7 +12,7 @@ Features:
 - Caches all emoji images.
 
 TODO:
-- Stop using curl hack for fetching emojis and users, use the real API.
+- Stop using undocumented endpoint for fetching emojis, use the real API.
 - Automate finding last week's top emoji votes.
 - Automate finding the last new emoji from last week.
 - Detect people's first uploaded emoji and congratulate.

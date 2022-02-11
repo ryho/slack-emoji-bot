@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,13 +10,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/slack-go/slack"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
@@ -35,13 +34,17 @@ const cacheImages = true
 // This controls if the JSON blob of all current emojis is cached. This is only used for detecting
 // deleted emojis.
 const cacheEmojiDumps = true
-const runMode Mode = MODE__FULL_SEND
+const runMode Mode = MODE__PRINT_EVERYTHING
 
 // Top uploaders of all time is noisy.
 // I only send at the end of the year, if someone has recently moved up a lot, etc.
 const sendTopUploadersAllTime = false
 
+// The channel to post these messages in when in FULL_SEND mode.
+const emojiChannel = "#emojis"
+
 // END of things you should edit
+// See config.go for more things to edit
 
 type Mode int
 
@@ -52,7 +55,10 @@ const (
 	MODE__FULL_SEND
 )
 
+var slackApi *slack.Client
+
 func main() {
+	slackApi = slack.New(botOauthToken)
 	allEmojis, err := getAllEmojis()
 	if err != nil {
 		panic(err)
@@ -108,12 +114,10 @@ const (
 	muteMessage        = "If you do not want to be pinged by this list, message @%s to request that you be added to the mute list so the script prints your name without the @ sign.\n"
 	skipMessage        = "If you want to be excluded from the list all together, you can ask @%s to add you to the skip list.\n"
 
-	countOld = `name="count"\r\n\r\n100\r\n`
-	countNew = `name="count"\r\n\r\n100000000\r\n`
+	snapshotDir = "/Documents/emojiSnapshots/"
+	imagesDir   = snapshotDir + "images/"
 
-	snapshotDir    = "/Documents/emojiSnapshots/"
-	imagesDir      = snapshotDir + "images/"
-	postMessageUrl = "https://slack.com/api/chat.postMessage"
+	emojiListUrl = "https://square.slack.com/api/emoji.adminList"
 )
 
 type MessageType int
@@ -195,42 +199,14 @@ type emoji struct {
 	UserDisplayName string `json:"user_display_name"`
 }
 
-type SlackUsersResponseMessage struct {
-	Ok      bool    `json:"ok"`
-	Results []*User `json:"results"`
-}
-
-type User struct {
-	Id       string `json:"id"`
-	LDAP     string `json:"name"`
-	RealName string `json:"real_name"`
-	Deleted  bool   `json:"deleted"`
-}
-
 type stringCount struct {
 	count int
 	name  string
 	id    string
 }
 
-type postMessageResponse struct {
-	Ok    bool   `json:"ok"`
-	Ts    string `json:"ts"`
-	Error string `json:"error"`
-	// There is also "message" which contains an object
-}
-
 func parseEmojiResponse(response []byte) (*SlackEmojiResponseMessage, error) {
 	var responseParsed SlackEmojiResponseMessage
-	err := json.Unmarshal(response, &responseParsed)
-	if err != nil {
-		return nil, err
-	}
-	return &responseParsed, nil
-}
-
-func parseUserResponse(response []byte) (*SlackUsersResponseMessage, error) {
-	var responseParsed SlackUsersResponseMessage
 	err := json.Unmarshal(response, &responseParsed)
 	if err != nil {
 		return nil, err
@@ -247,8 +223,7 @@ func ensureDirExists(path string) error {
 }
 
 func getAllEmojis() (*SlackEmojiResponseMessage, error) {
-	command := strings.Replace(emojiCurl, countOld, countNew, 1)
-	commandResponse, err := exec.Command("sh", "-c", command).Output()
+	commandResponse, err := getEmojis()
 	if err != nil {
 		return nil, err
 	}
@@ -339,34 +314,24 @@ func cacheEmojiImages(response *SlackEmojiResponseMessage) error {
 	return nil
 }
 
-func getUsers(userIds []string) (map[string]*User, error) {
-	users := map[string]*User{}
+func getUsers(userIds []string) (map[string]*slack.User, error) {
+	users := map[string]*slack.User{}
 	var endIndex int
 	// This endpoint only supports 100 users per request, so we need to request them in batches.
 	for startIndex := 0; startIndex < len(userIds); startIndex = endIndex {
-		endIndex = minInt(startIndex+100, len(userIds))
+		endIndex = minInt(startIndex+30, len(userIds))
 		batchUserIds := userIds[startIndex:endIndex]
-		var userIdString string
-		for _, id := range batchUserIds {
-			userIdString += "\"" + id + "\":0,"
-		}
-		userIdString = userIdString[:len(userIdString)-1]
-
-		command := strings.Replace(userCurl, "INSERT_USER_IDS_HERE", userIdString, -1)
-		usersResponse, err := exec.Command("sh", "-c", command).Output()
+		usersResults, err := slackApi.GetUsersInfo(batchUserIds...)
 		if err != nil {
 			return nil, err
 		}
-		parsedResponse, err := parseUserResponse(usersResponse)
-		if err != nil {
-			return nil, err
-		}
-		for _, user := range parsedResponse.Results {
-			users[user.Id] = user
+		for i, user := range *usersResults {
+			users[user.ID] = &(*usersResults)[i]
 		}
 	}
 	return users, nil
 }
+
 func minInt(a, b int) int {
 	if a < b {
 		return a
@@ -405,7 +370,7 @@ func detectDeletedEmojis(response *SlackEmojiResponseMessage) error {
 			}
 			for _, emoji := range missingEmojis {
 				user := userMap[emoji.UserId]
-				message += fmt.Sprintf("%s (@%s) %v %s \n", emoji.Name, user.LDAP, time.Unix(int64(emoji.Created), 0), emoji.Url)
+				message += fmt.Sprintf("%s (@%s) %v %s \n", emoji.Name, user.Name, time.Unix(int64(emoji.Created), 0), emoji.Url)
 			}
 		}
 		message += "\n"
@@ -430,14 +395,6 @@ func removeSkippedEmojis(response *SlackEmojiResponseMessage) {
 	}
 }
 
-/*
-const (
-	MODE__PRINT_EVERYTHING Mode= iota
-	MODE__DM_FOR_REVIEW
-	MODE__DM_FOR_TESTING
-	MODE__FULL_SEND
-)
-*/
 func printMessage(level MessageType, text string) (string, error) {
 	return printMessageWithThreadId(level, text, "")
 }
@@ -527,30 +484,31 @@ func printMessageWithThreadId(level MessageType, text string, threadId string) (
 }
 
 func sendMessage(dest, text, threadId string) (string, error) {
-	vals := url.Values{}
-	vals.Set("token", oauthToken)
-	vals.Set("channel", dest)
-	vals.Set("text", text)
+	var options = []slack.MsgOption{slack.MsgOptionText(text, false)}
 	if threadId != "" {
-		vals.Set("thread_ts", threadId)
+		options = append(options, slack.MsgOptionTS(threadId))
 	}
-	var respMessage postMessageResponse
-	resp, err := http.PostForm(postMessageUrl, vals)
+	_, msgId, err := slackApi.PostMessage(dest, options...)
+	return msgId, err
+}
+
+func getEmojis() ([]byte, error) {
+	vals := url.Values{}
+	vals.Set("token", ownerUserOauthToken)
+	vals.Set("page", "1")
+	vals.Set("count", "100000000")
+	vals.Set("sort_by", "created")
+	vals.Set("sort_dir", "desc")
+	vals.Set("_x_mode", "online")
+	resp, err := http.PostForm(emojiListUrl, vals)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	err = json.Unmarshal(bodyBytes, &respMessage)
-	if err != nil {
-		return "", err
-	}
-	if !respMessage.Ok {
-		return "", errors.New(respMessage.Error)
-	}
-	return respMessage.Ts, nil
+	return bodyBytes, nil
 }
 
 func mostRecentEmojis(response *SlackEmojiResponseMessage) error {
@@ -747,32 +705,32 @@ func printTopPeople(message string, people map[string]*stringCount, maxPeople in
 		if !ok {
 			return fmt.Errorf("could not find user %v %v", peopleCountArray[i].id, peopleCountArray[i].name)
 		}
-		if _, ok := skipLDAPs[user.LDAP]; ok {
+		if _, ok := skipLDAPs[user.Name]; ok {
 			// This skips the user so they do not show up at all.
 			skipCorrection++
 			continue
 		}
-		if _, ok := muteLDAPs[user.LDAP]; ok {
+		if _, ok := muteLDAPs[user.Name]; ok {
 			// This prints the LDAP with no @ sign, so they will not be pinged.
 			if i < TopPeopleToPrint {
-				firstMessage += printer.Sprintf("%d. %s (%s) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.LDAP, peopleCountArray[i].count)
+				firstMessage += printer.Sprintf("%d. %s (%s) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.Name, peopleCountArray[i].count)
 			} else {
-				secondMessage += printer.Sprintf("%d. %s (%s) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.LDAP, peopleCountArray[i].count)
+				secondMessage += printer.Sprintf("%d. %s (%s) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.Name, peopleCountArray[i].count)
 			}
 		} else {
 			if i < TopPeopleToPrint {
 				if printOnly || runMode == MODE__PRINT_EVERYTHING || runMode == MODE__DM_FOR_REVIEW {
-					firstMessage += printer.Sprintf("%d. %s (@%s) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.LDAP, peopleCountArray[i].count)
+					firstMessage += printer.Sprintf("%d. %s (@%s) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.Name, peopleCountArray[i].count)
 				} else {
 					// Since this will be sent to the API, use the API format.
-					firstMessage += printer.Sprintf("%d. %s (<@%s>) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.Id, peopleCountArray[i].count)
+					firstMessage += printer.Sprintf("%d. %s (<@%s>) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.ID, peopleCountArray[i].count)
 				}
 			} else {
 				if printOnly || runMode == MODE__PRINT_EVERYTHING || runMode == MODE__DM_FOR_REVIEW {
-					secondMessage += printer.Sprintf("%d. %s (@%s) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.LDAP, peopleCountArray[i].count)
+					secondMessage += printer.Sprintf("%d. %s (@%s) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.Name, peopleCountArray[i].count)
 				} else {
 					// Since this will be sent to the API, use the API format.
-					secondMessage += printer.Sprintf("%d. %s (<@%s>) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.Id, peopleCountArray[i].count)
+					secondMessage += printer.Sprintf("%d. %s (<@%s>) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.ID, peopleCountArray[i].count)
 				}
 			}
 		}
@@ -813,26 +771,26 @@ func printTopCreators(message string, peopleIds []string, reactions []int, emoji
 		if !ok {
 			return fmt.Errorf("could not find user %v", peopleId)
 		}
-		if _, ok := skipLDAPs[user.LDAP]; ok {
+		if _, ok := skipLDAPs[user.Name]; ok {
 			continue
 		}
-		if _, ok := muteLDAPs[user.LDAP]; ok {
+		if _, ok := muteLDAPs[user.Name]; ok {
 			// This prints the LDAP with no @ sign, so they will not be pinged.
 			if i < TopPeopleToPrint {
-				firstMessage += printer.Sprintf("%d. %s (%s) %s %d\n", i+1, user.RealName, user.LDAP, emojis[i], reactions[i])
+				firstMessage += printer.Sprintf("%d. %s (%s) %s %d\n", i+1, user.RealName, user.Name, emojis[i], reactions[i])
 			} else {
-				secondMessage += printer.Sprintf("%d. %s (%s) %s %d\n", i+1, user.RealName, user.LDAP, emojis[i], reactions[i])
+				secondMessage += printer.Sprintf("%d. %s (%s) %s %d\n", i+1, user.RealName, user.Name, emojis[i], reactions[i])
 			}
 		} else {
 			if i < TopPeopleToPrint {
 				if runMode == MODE__PRINT_EVERYTHING || runMode == MODE__DM_FOR_REVIEW {
-					firstMessage += printer.Sprintf("%d. %s (@%s) %s %d\n", i+1, user.RealName, user.LDAP, emojis[i], reactions[i])
+					firstMessage += printer.Sprintf("%d. %s (@%s) %s %d\n", i+1, user.RealName, user.Name, emojis[i], reactions[i])
 				} else {
 					// Since this will be sent to the API, use the API format.
-					firstMessage += printer.Sprintf("%d. %s (<@%s>) %s %d\n", i+1, user.RealName, user.Id, emojis[i], reactions[i])
+					firstMessage += printer.Sprintf("%d. %s (<@%s>) %s %d\n", i+1, user.RealName, user.ID, emojis[i], reactions[i])
 				}
 			} else {
-				secondMessage += printer.Sprintf("%d. %s (@%s) %s %d\n", i+1, user.RealName, user.LDAP, emojis[i], reactions[i])
+				secondMessage += printer.Sprintf("%d. %s (@%s) %s %d\n", i+1, user.RealName, user.Name, emojis[i], reactions[i])
 			}
 		}
 	}
