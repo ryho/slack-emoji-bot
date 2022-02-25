@@ -6,7 +6,10 @@ func removeSkippedEmojis(response *SlackEmojiResponseMessage) {
 	// Remove colons. This allows the emojis to be specified as
 	// :emoji_name: or just emoji_name
 	for emoji := range skipEmojis {
-		strings.ReplaceAll(emoji, ":", "")
+		if emoji[0] == ':' {
+			skipEmojis[strings.ReplaceAll(emoji, ":", "")] = struct{}{}
+			delete(skipEmojis, emoji)
+		}
 	}
 
 	for i := 0; i < len(response.Emoji); i++ {
