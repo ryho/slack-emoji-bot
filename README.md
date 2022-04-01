@@ -10,11 +10,13 @@ Features:
 - Longest emoji names.
 - Detection of deleted emojis.
 - Caches all emoji images.
+- April fools mode to send all emojis as a broken image emoji.
 
 TODO:
 - Stop using undocumented endpoint for fetching emojis, use the real API.
 - Detect people's first uploaded emoji and congratulate.
 - Rework how settings are configured. Currently, they are hardcoded in a Golang file.
+- Send deleted emojis in "DM for review" mode.
 - Improve behavior when this is your first time running the script.
   - It would post all emojis ever if you don't specify an emoji from 7 days ago which is tricky to get if you have not run this before.
   - It should support skipping "top emojis from last week" if this is the first week.

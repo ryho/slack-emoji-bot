@@ -29,6 +29,16 @@ const (
 	// I only send at the end of the year, if someone has recently moved up a lot, etc.
 	sendTopUploadersAllTime = false
 
+	// Replaces all emoijs sent with a single emoji, ideally an old school windows broken image emoji.
+	aprilFoolsMode = false
+	// Do not include the colons
+	aprilFoolsEmoji = "broken-img"
+
+	// Needs to be used after turning off April Fools mode
+	// to prevent the joke emoji from being detected as the last mew emoji.
+	// Can also be used when running the script for the first time.
+	overRideLastNewEmoji = ""
+
 	// The channel to post these messages in when in FULL_SEND mode.
 	emojiChannel = "#emojis"
 
@@ -153,6 +163,9 @@ func mostRecentEmojis(response *SlackEmojiResponseMessage) error {
 		if emojiName == lastNewEmojiSanitized {
 			foundLastEmoji = true
 			break
+		}
+		if aprilFoolsMode {
+			emojiName = aprilFoolsEmoji
 		}
 		newPart := ":" + emojiName + ": " + emojiName + "\n"
 		if len(newPart)+len(auditMessage[len(auditMessage)-1]) > maxCharactersPerMessage {

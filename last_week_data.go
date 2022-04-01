@@ -13,6 +13,12 @@ import (
 )
 
 func dealWithLastWeekMessages(allEmojis *SlackEmojiResponseMessage) error {
+	if overRideLastNewEmoji != "" {
+		// If overriding the last new emoji, assume that we are also not
+		// able to get last week's votes.
+		lastNewEmoji = overRideLastNewEmoji
+		return nil
+	}
 	// Get the emojis channel
 	emojiChannelData, err := getChannel(emojiChannel)
 	if err != nil {
@@ -152,7 +158,13 @@ func printTopEmojisByReactionVote(message *slack.Message, allEmojis *SlackEmojiR
 		emojisObj := allEmojis.emojiMap[emoji.name]
 		creators = append(creators, emojisObj.UserId)
 		counts = append(counts, emoji.count)
-		printedEmojis = append(printedEmojis, emoji.name)
+		var name string
+		if aprilFoolsMode {
+			name = aprilFoolsEmoji
+		} else {
+			name = emoji.name
+		}
+		printedEmojis = append(printedEmojis, name)
 		previousCount = emoji.count
 		printedCount++
 	}
