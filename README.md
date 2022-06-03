@@ -13,6 +13,7 @@ Features:
 - April fools mode to send all emojis as a broken image emoji.
 
 TODO:
+- Welcome people that joined in the past week.
 - Stop using undocumented endpoint for fetching emojis, use the real API.
 - Detect people's first uploaded emoji and congratulate.
 - Rework how settings are configured. Currently, they are hardcoded in a Golang file.

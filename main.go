@@ -116,7 +116,7 @@ const (
 	maxCharactersPerMessage   = 10000
 	TopPeopleToPrint          = 5
 
-	lastWeek           = "Congratulations to the top emojis from last week (sorted by emoji reactions):\n"
+	lastWeek           = "Congratulations to the top emojis from last week (sorted by emoji reactions from %v voters):\n"
 	introMessage       = "Here are all the new emojis! There are %v new emojis from %v people."
 	lastMessage        = "React here with the best new emojis!"
 	topAllTimeMessage  = "Top Emoji Uploaders of All Time:"

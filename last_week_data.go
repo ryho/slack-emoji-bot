@@ -132,8 +132,12 @@ func getChannel(channelName string) (*slack.Channel, error) {
 // This takes in the copied text of a message from Slack, and prints the top Emoji reactions.
 func printTopEmojisByReactionVote(message *slack.Message, allEmojis *SlackEmojiResponseMessage) error {
 	var emojis []*stringCount
+	uniqueUsers := map[string]struct{}{}
 	for _, reaction := range message.Reactions {
 		emojis = append(emojis, &stringCount{name: reaction.Name, count: reaction.Count})
+		for _, user := range reaction.Users {
+			uniqueUsers[user] = struct{}{}
+		}
 	}
 	sort.Sort(ByCount(emojis))
 
@@ -169,5 +173,5 @@ func printTopEmojisByReactionVote(message *slack.Message, allEmojis *SlackEmojiR
 		printedCount++
 	}
 
-	return printTopCreators(lastWeek, creators, counts, printedEmojis)
+	return printTopCreators(fmt.Sprintf(lastWeek, len(uniqueUsers)), creators, counts, printedEmojis)
 }
