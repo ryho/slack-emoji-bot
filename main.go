@@ -44,7 +44,7 @@ const (
 
 	// This controls if things are printed, DMed or posted publicly.
 	// See values below.
-	runMode Mode = MODE__DM_FOR_TESTING
+	runMode Mode = MODE__PRINT_EVERYTHING
 )
 
 // END of things you should edit
@@ -116,9 +116,9 @@ const (
 	maxCharactersPerMessage   = 10000
 	TopPeopleToPrint          = 5
 
-	lastWeek           = "Congratulations to the top emojis from last week (sorted by emoji reactions from %v voters):\n"
+	lastWeek           = "Congratulations to the top new emojis from last week (sorted by emoji reactions from %v voters):\n"
 	introMessage       = "Here are all the new emojis! There are %v new emojis from %v people."
-	lastMessage        = "React here with the best new emojis!"
+	lastMessage        = "Vote for the best new emoji of this week by reacting here!"
 	topAllTimeMessage  = "Top Emoji Uploaders of All Time:"
 	topThisWeekMessage = "Top Emoji Uploaders This Week:"
 	muteMessage        = "If you do not want to be pinged by this list, message @%s to request that you be added to the mute list so the script prints your name without the @ sign.\n"
