@@ -2,7 +2,7 @@ package main
 
 import "sort"
 
-type StringLengthSort []emoji
+type StringLengthSort []*emoji
 
 func (p StringLengthSort) Len() int           { return len(p) }
 func (p StringLengthSort) Less(i, j int) bool { return len(p[i].Name) > len(p[j].Name) }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,7 +27,7 @@ func ensureDirExists(path string) error {
 	return nil
 }
 
-func cacheEmojiResponse(commandResponse []byte) error {
+func cacheEmojiResponse(commandResponse *SlackEmojiResponseMessage) error {
 	userDir, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -35,8 +36,12 @@ func cacheEmojiResponse(commandResponse []byte) error {
 	if err != nil {
 		return err
 	}
+	responseBytes, err := json.Marshal(commandResponse)
+	if err != nil {
+		return err
+	}
 	fileName := userDir + snapshotDir + time.Now().String() + ".json"
-	return ioutil.WriteFile(fileName, commandResponse, 0644)
+	return ioutil.WriteFile(fileName, responseBytes, 0644)
 }
 
 func cacheEmojiImages(response *SlackEmojiResponseMessage) error {
@@ -116,7 +121,7 @@ func detectDeletedEmojis(response *SlackEmojiResponseMessage) error {
 			return err
 		}
 		message += "\nDeleted Emojis:\n\n"
-		var missingEmojis []emoji
+		var missingEmojis []*emoji
 		var peopleIds []string
 		for _, emoji := range lastResponse.Emoji {
 			if _, ok := allCurrentEmojis[emoji.Name]; !ok {

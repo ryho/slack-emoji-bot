@@ -5,16 +5,27 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 )
 
 const (
 	emojiListUrl = "https://square.slack.com/api/emoji.adminList"
+	pageSize     = 20000
 )
 
 type SlackEmojiResponseMessage struct {
-	Ok       bool    `json:"ok"`
-	Emoji    []emoji `json:"emoji"`
-	emojiMap map[string]emoji
+	Ok                    bool           `json:"ok"`
+	Emoji                 []*emoji       `json:"emoji"`
+	CustomEmojiTotalCount int64          `json:"custom_emoji_total_count"`
+	Paging                PagingResponse `json:"paging"`
+	emojiMap              map[string]*emoji
+}
+
+type PagingResponse struct {
+	Count int `json:"count"`
+	Total int `json:"total"`
+	Page  int `json:"page"`
+	Pages int `json:"pages"`
 }
 
 type emoji struct {
@@ -29,33 +40,41 @@ type emoji struct {
 }
 
 func getAllEmojis() (*SlackEmojiResponseMessage, error) {
-	commandResponse, err := getEmojis()
-	if err != nil {
-		return nil, err
+	var allEmojis, currentPage *SlackEmojiResponseMessage
+	for page := 1; currentPage == nil || page < currentPage.Paging.Pages; page++ {
+		commandResponse, err := getEmojis(page)
+		if err != nil {
+			return nil, err
+		}
+		currentPage, err = parseEmojiResponse(commandResponse)
+		if err != nil {
+			return nil, err
+		}
+		if allEmojis == nil {
+			allEmojis = currentPage
+		} else {
+			allEmojis.Emoji = append(allEmojis.Emoji, currentPage.Emoji...)
+		}
 	}
 	if cacheEmojiDumps {
-		err := cacheEmojiResponse(commandResponse)
+		err := cacheEmojiResponse(allEmojis)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	allEmojis, err := parseEmojiResponse(commandResponse)
-	if err != nil {
-		return nil, err
-	}
-	allEmojis.emojiMap = make(map[string]emoji, len(allEmojis.Emoji))
+	allEmojis.emojiMap = make(map[string]*emoji, len(allEmojis.Emoji))
 	for i, emoji := range allEmojis.Emoji {
 		allEmojis.emojiMap[emoji.Name] = allEmojis.Emoji[i]
 	}
 	return allEmojis, nil
 }
 
-func getEmojis() ([]byte, error) {
+func getEmojis(page int) ([]byte, error) {
 	vals := url.Values{}
 	vals.Set("token", ownerUserOauthToken)
-	vals.Set("page", "1")
-	vals.Set("count", "100000000")
+	vals.Set("page", strconv.Itoa(page))
+	vals.Set("count", strconv.Itoa(pageSize))
 	vals.Set("sort_by", "created")
 	vals.Set("sort_dir", "desc")
 	vals.Set("_x_mode", "online")
@@ -72,6 +91,7 @@ func getEmojis() ([]byte, error) {
 
 func parseEmojiResponse(response []byte) (*SlackEmojiResponseMessage, error) {
 	var responseParsed SlackEmojiResponseMessage
+	responseParsed.Emoji = make([]*emoji, 0, pageSize)
 	err := json.Unmarshal(response, &responseParsed)
 	if err != nil {
 		return nil, err
