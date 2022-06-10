@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/slack-go/slack"
 	"golang.org/x/text/language"
@@ -28,6 +29,8 @@ const (
 	// Top uploaders of all time is noisy.
 	// I only send at the end of the year, if someone has recently moved up a lot, etc.
 	sendTopUploadersAllTime = false
+
+	findLongestEmojisAllTime = false
 
 	// Replaces all emoijs sent with a single emoji, ideally an old school windows broken image emoji.
 	aprilFoolsMode = false
@@ -60,6 +63,7 @@ const (
 )
 
 func main() {
+	start := time.Now()
 	slackApi = slack.New(botOauthToken)
 
 	allEmojis, err := getAllEmojis()
@@ -96,11 +100,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	err = longestEmojis(allEmojis)
-	if err != nil {
-		panic(err)
+	if findLongestEmojisAllTime {
+		err = longestEmojis(allEmojis)
+		if err != nil {
+			panic(err)
+		}
 	}
+
+	fmt.Printf("Time spent: %v", time.Since(start))
 }
 
 var (
@@ -116,13 +123,14 @@ const (
 	maxCharactersPerMessage   = 10000
 	TopPeopleToPrint          = 5
 
-	lastWeek           = "Congratulations to the top new emojis from last week (sorted by emoji reactions from %v voters):\n"
-	introMessage       = "Here are all the new emojis! There are %v new emojis from %v people."
-	lastMessage        = "Vote for the best new emoji of this week by reacting here!"
-	topAllTimeMessage  = "Top Emoji Uploaders of All Time:"
-	topThisWeekMessage = "Top Emoji Uploaders This Week:"
-	muteMessage        = "If you do not want to be pinged by this list, message @%s to request that you be added to the mute list so the script prints your name without the @ sign.\n"
-	skipMessage        = "If you want to be excluded from the list all together, you can ask @%s to add you to the skip list.\n"
+	lastWeek            = "Congratulations to the top new emojis from last week (sorted by emoji reactions from %v voters):\n"
+	introMessage        = "Here are all the new emojis! There are %v new emojis from %v people."
+	lastMessage         = "Vote for the best new emoji of the week by reacting here!"
+	lastMessagePrevious = "React here with the best new emojis!"
+	topAllTimeMessage   = "Top Emoji Uploaders of All Time:"
+	topThisWeekMessage  = "Top Emoji Uploaders This Week:"
+	muteMessage         = "If you do not want to be pinged by this list, message @%s to request that you be added to the mute list so the script prints your name without the @ sign.\n"
+	skipMessage         = "If you want to be excluded from the list all together, you can ask @%s to add you to the skip list.\n"
 )
 
 func mostRecentEmojis(response *SlackEmojiResponseMessage) error {
@@ -224,7 +232,7 @@ func mostRecentEmojis(response *SlackEmojiResponseMessage) error {
 	return printTopPeople(topThisWeekMessage, people, math.MaxInt64, false)
 }
 
-type EmojiUploadDateSort []emoji
+type EmojiUploadDateSort []*emoji
 
 func (p EmojiUploadDateSort) Len() int           { return len(p) }
 func (p EmojiUploadDateSort) Less(i, j int) bool { return p[i].Created > p[j].Created }

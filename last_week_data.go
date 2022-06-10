@@ -63,7 +63,7 @@ func findLastWeekMessages(emojiChannelData *slack.Channel) (*slack.Message, *sla
 			break
 		}
 		for i, message := range messages.Messages {
-			if message.Text == lastMessage {
+			if message.Text == lastMessage || message.Text == lastMessagePrevious {
 				reactionMessage = message
 				foundOne = true
 				if len(messages.Messages) >= i {
