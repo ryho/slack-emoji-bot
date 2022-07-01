@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/slack-go/slack"
 )
@@ -14,6 +15,8 @@ const (
 	MSG_TYPE__SEND_AND_REVIEW
 	MSG_TYPE__DM_ONLY
 	MSG_TYPE__PRINT_ONLY
+
+	slackRateLimitFormat = `slack rate limit exceeded, retry after %ds`
 )
 
 func printMessage(level MessageType, text string) (string, error) {
@@ -111,5 +114,17 @@ func sendMessage(dest, text, threadId string) (string, error) {
 		options = append(options, slack.MsgOptionTS(threadId))
 	}
 	_, msgId, err := slackApi.PostMessage(dest, options...)
+	if err != nil {
+		// If we got rate limited, wait the amount of time that it recommends.
+		var sleepTime time.Duration
+		_, err2 := fmt.Sscanf(err.Error(), slackRateLimitFormat, &sleepTime)
+		if err2 != nil || sleepTime == 0 {
+			return "", err
+		} else {
+			fmt.Printf("Sleeing for %d seconds per rate limit message\n", sleepTime)
+			time.Sleep(sleepTime * time.Second)
+			_, msgId, err = slackApi.PostMessage(dest, options...)
+		}
+	}
 	return msgId, err
 }

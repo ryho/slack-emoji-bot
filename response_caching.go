@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/ryho/slack-emoji-bot/util"
 )
 
 const (
@@ -112,9 +114,9 @@ func detectDeletedEmojis(response *SlackEmojiResponseMessage) error {
 	}
 
 	if lastResponseBytes != nil {
-		allCurrentEmojis := make(map[string]struct{})
+		allCurrentEmojis := make(util.StringSet)
 		for _, emoji := range response.Emoji {
-			allCurrentEmojis[emoji.Name] = struct{}{}
+			allCurrentEmojis[emoji.Name] = util.SetEntry{}
 		}
 		lastResponse, err := parseEmojiResponse(lastResponseBytes)
 		if err != nil {
