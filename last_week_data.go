@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ryho/slack-emoji-bot/util"
+
 	"github.com/slack-go/slack"
 )
 
@@ -132,11 +134,11 @@ func getChannel(channelName string) (*slack.Channel, error) {
 // This takes in the copied text of a message from Slack, and prints the top Emoji reactions.
 func printTopEmojisByReactionVote(message *slack.Message, allEmojis *SlackEmojiResponseMessage) error {
 	var emojis []*stringCount
-	uniqueUsers := map[string]struct{}{}
+	uniqueUsers := util.StringSet{}
 	for _, reaction := range message.Reactions {
 		emojis = append(emojis, &stringCount{name: reaction.Name, count: reaction.Count})
 		for _, user := range reaction.Users {
-			uniqueUsers[user] = struct{}{}
+			uniqueUsers[user] = util.SetEntry{}
 		}
 	}
 	sort.Sort(ByCount(emojis))

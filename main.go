@@ -32,6 +32,14 @@ const (
 
 	findLongestEmojisAllTime = false
 
+	// If this is turned on, emojis in the format "emoji-name-123" will be skipped.
+	// This is the format used by Slack if another work space's emojis are merged in and there are duplicate names.
+	skipDuplicateBulkImportEmojis = true
+	// Do not include emojis if after removing - and _ they are a dupe of an existing emoji.
+	strictUniqueMode = true
+	// Skip emojis that begin with screen-shot-, the format that Mac uses by default.
+	skipScreenShots = true
+
 	// Replaces all emoijs sent with a single emoji, ideally an old school windows broken image emoji.
 	aprilFoolsMode = false
 	// Do not include the colons
@@ -40,6 +48,7 @@ const (
 	// Needs to be used after turning off April Fools mode
 	// to prevent the joke emoji from being detected as the last mew emoji.
 	// Can also be used when running the script for the first time.
+	// Can have colons or not, doesn't matter.
 	overRideLastNewEmoji = ""
 
 	// The channel to post these messages in when in FULL_SEND mode.
@@ -237,6 +246,12 @@ type EmojiUploadDateSort []*emoji
 func (p EmojiUploadDateSort) Len() int           { return len(p) }
 func (p EmojiUploadDateSort) Less(i, j int) bool { return p[i].Created > p[j].Created }
 func (p EmojiUploadDateSort) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+type EmojiUploadDateSortBackwards []*emoji
+
+func (p EmojiUploadDateSortBackwards) Len() int           { return len(p) }
+func (p EmojiUploadDateSortBackwards) Less(i, j int) bool { return p[i].Created < p[j].Created }
+func (p EmojiUploadDateSortBackwards) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 type ByCount []*stringCount
 
