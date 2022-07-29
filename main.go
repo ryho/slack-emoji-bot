@@ -32,13 +32,17 @@ const (
 
 	findLongestEmojisAllTime = false
 
+	skipTopEmojisByReactionVote = false
+
 	// If this is turned on, emojis in the format "emoji-name-123" will be skipped.
 	// This is the format used by Slack if another work space's emojis are merged in and there are duplicate names.
-	skipDuplicateBulkImportEmojis = true
+	skipDuplicateBulkImportEmojis = false
 	// Do not include emojis if after removing - and _ they are a dupe of an existing emoji.
-	strictUniqueMode = true
+	strictUniqueMode = false
 	// Skip emojis that begin with screen-shot-, the format that Mac uses by default.
 	skipScreenShots = true
+	// Disables the emojis to skip list.
+	literally1984Mode = true
 
 	// Replaces all emoijs sent with a single emoji, ideally an old school windows broken image emoji.
 	aprilFoolsMode = false

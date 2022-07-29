@@ -41,7 +41,7 @@ type emoji struct {
 
 func getAllEmojis() (*SlackEmojiResponseMessage, error) {
 	var allEmojis, currentPage *SlackEmojiResponseMessage
-	for page := 1; currentPage == nil || page < currentPage.Paging.Pages; page++ {
+	for page := 1; currentPage == nil || page <= currentPage.Paging.Pages; page++ {
 		commandResponse, err := getEmojis(page)
 		if err != nil {
 			return nil, err

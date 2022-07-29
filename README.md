@@ -14,7 +14,6 @@ Features:
 
 TODO:
 - Welcome people that joined in the past week.
-- Stop using undocumented endpoint for fetching emojis, use the real API.
 - Detect people's first uploaded emoji and congratulate.
 - Rework how settings are configured. Currently, they are hardcoded in a Golang file.
 - Send deleted emojis in "DM for review" mode.
@@ -25,3 +24,5 @@ TODO:
 uploaded the original emoji will show up on the most popular emoji ranking. Not sure if this can be fixed. 
 - Make this program be a running process, not a script. This will unlock many more features.
   - Automate users asking to be muted or skipped.
+Backlog (lol)
+- Stop using undocumented endpoint for fetching emojis, use the real API.
