@@ -181,14 +181,14 @@ func printTopCreators(message string, peopleIds []string, reactions []int, emoji
 			}
 		}
 	}
-	threadId, err := printMessage(MSG_TYPE__SEND, firstMessage)
+	threadId, err := printMessage(MSG_TYPE__SEND_AND_REVIEW, firstMessage)
 	if err != nil {
 		return err
 	}
 	secondMessage += "\n" + fmt.Sprintf(muteMessage, ownerLDAP)
 	secondMessage += "\n" + fmt.Sprintf(skipMessage, ownerLDAP)
 
-	_, err = printMessageWithThreadId(MSG_TYPE__SEND, secondMessage, threadId)
+	_, err = printMessageWithThreadId(MSG_TYPE__SEND_AND_REVIEW, secondMessage, threadId)
 	if err != nil {
 		return err
 	}

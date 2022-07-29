@@ -32,9 +32,11 @@ func dealWithLastWeekMessages(allEmojis *SlackEmojiResponseMessage) error {
 	if err != nil {
 		return err
 	}
-	err = printTopEmojisByReactionVote(reactionMessage, allEmojis)
-	if err != nil {
-		return err
+	if !skipTopEmojisByReactionVote {
+		err = printTopEmojisByReactionVote(reactionMessage, allEmojis)
+		if err != nil {
+			return err
+		}
 	}
 	// Find the last emoji that was posted last week.
 	parts := strings.Split(lastEmojiMessage.Text, ":")

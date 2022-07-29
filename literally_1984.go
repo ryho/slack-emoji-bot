@@ -22,9 +22,11 @@ func removeSkippedEmojis(response *SlackEmojiResponseMessage) {
 	var newEmojiList []*emoji
 	for i := 0; i < len(response.Emoji); i++ {
 		emoji := response.Emoji[i]
-		if _, ok := skipEmojis[emoji.Name]; ok {
-			delete(response.emojiMap, emoji.Name)
-			continue
+		if literally1984Mode {
+			if _, ok := skipEmojis[emoji.Name]; ok {
+				delete(response.emojiMap, emoji.Name)
+				continue
+			}
 		}
 		if skipScreenShots && strings.HasPrefix(emoji.Name, "screen-shot-") {
 			delete(response.emojiMap, emoji.Name)
