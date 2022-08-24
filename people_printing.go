@@ -43,7 +43,7 @@ func createNameString(peopleArray []string) string {
 	return "Thanks to " + strings.Join(peopleArray[:len(peopleArray)-1], ", ") + ", and " + peopleArray[len(peopleArray)-1] + "."
 }
 
-func topUploaders(response *SlackEmojiResponseMessage) error {
+func topAndNewUploaders(response *SlackEmojiResponseMessage) error {
 	people := map[string]*stringCount{}
 	for _, emoji := range response.Emoji {
 		count, ok := people[emoji.UserId]
@@ -61,18 +61,35 @@ func topUploaders(response *SlackEmojiResponseMessage) error {
 	if err != nil {
 		return err
 	}
-	return printTopPeople(topAllTimeMessage, people, maxPeopleForTopUploaders, !sendTopUploadersAllTime)
+	err = printTopPeople(topAllTimeMessage, topSecondMessage, people, maxPeopleForTopUploaders, !sendTopUploadersAllTime)
+	if err != nil {
+		return err
+	}
+
+	// Find people who uploaded for the first time.
+	newPeopleThisWeek := map[string]*stringCount{}
+	for _, uploadThisWeek := range response.peopleThisWeek {
+		if uploadsAllTime, ok := people[uploadThisWeek.id]; !ok || uploadThisWeek.count == uploadsAllTime.count {
+			newPeopleThisWeek[uploadThisWeek.id] = uploadThisWeek
+		}
+	}
+	newUploadersMessage := fmt.Sprintf(newUploadersMessage, len(newPeopleThisWeek))
+	err = printTopPeople(newUploadersMessage, newUploadersSecondMessage, newPeopleThisWeek, maxPeopleForTopUploaders, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func printTopPeople(message string, people map[string]*stringCount, maxPeople int, printOnly bool) error {
+func printTopPeople(firstMessage, secondMessage string, people map[string]*stringCount, maxPeople int, printOnly bool) error {
 	var peopleCountArray []*stringCount
 	for _, count := range people {
 		peopleCountArray = append(peopleCountArray, count)
 	}
 	sort.Sort(ByCount(peopleCountArray))
-	var firstMessage, secondMessage string
-	firstMessage = message + "\n"
-	secondMessage = "More Top Emoji Uploaders This Week!\n"
+	firstMessage += "\n"
+	secondMessage += "\n"
 	var peopleIds []string
 	for i := 0; i < maxPeople && i < len(peopleCountArray); i++ {
 		peopleIds = append(peopleIds, peopleCountArray[i].id)

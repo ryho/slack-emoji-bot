@@ -143,7 +143,7 @@ func detectDeletedEmojis(response *SlackEmojiResponseMessage) error {
 		}
 		message += "\n"
 	}
-	_, err = printMessage(MSG_TYPE__PRINT_ONLY, message)
+	_, err = printMessage(MSG_TYPE__REVIEW_ONLY, message)
 	return err
 }
 
