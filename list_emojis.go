@@ -19,6 +19,7 @@ type SlackEmojiResponseMessage struct {
 	CustomEmojiTotalCount int64          `json:"custom_emoji_total_count"`
 	Paging                PagingResponse `json:"paging"`
 	emojiMap              map[string]*emoji
+	peopleThisWeek        map[string]*stringCount
 }
 
 type PagingResponse struct {

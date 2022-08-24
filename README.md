@@ -7,16 +7,16 @@ Features:
 - Interactive vote for most popular emoji of the week. Winner is posted the next week.
 - Top uploaders of the week by count.
 - Top uploaders of all time by count.
+- Detect first time emoji uploaders and congratulate.
 - Longest emoji names.
 - Detection of deleted emojis.
 - Caches all emoji images.
 - April fools mode to send all emojis as a broken image emoji.
 
 TODO:
+- Get top voted emojis of the year.
 - Welcome people that joined in the past week.
-- Detect people's first uploaded emoji and congratulate.
 - Rework how settings are configured. Currently, they are hardcoded in a Golang file.
-- Send deleted emojis in "DM for review" mode.
 - Improve behavior when this is your first time running the script.
   - It would post all emojis ever if you don't specify an emoji from 7 days ago which is tricky to get if you have not run this before.
   - It should support skipping "top emojis from last week" if this is the first week.

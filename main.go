@@ -109,7 +109,7 @@ func main() {
 		panic(err)
 	}
 
-	err = topUploaders(allEmojis)
+	err = topAndNewUploaders(allEmojis)
 	if err != nil {
 		panic(err)
 	}
@@ -136,19 +136,22 @@ const (
 	maxCharactersPerMessage   = 10000
 	TopPeopleToPrint          = 5
 
-	lastWeek            = "Congratulations to the top new emojis from last week (sorted by emoji reactions from %v voters):\n"
-	introMessage        = "Here are all the new emojis! There are %v new emojis from %v people."
-	lastMessage         = "Vote for the best new emoji of the week by reacting here!"
-	lastMessagePrevious = "React here with the best new emojis!"
-	topAllTimeMessage   = "Top Emoji Uploaders of All Time:"
-	topThisWeekMessage  = "Top Emoji Uploaders This Week:"
-	muteMessage         = "If you do not want to be pinged by this list, message @%s to request that you be added to the mute list so the script prints your name without the @ sign.\n"
-	skipMessage         = "If you want to be excluded from the list all together, you can ask @%s to add you to the skip list.\n"
+	lastWeek                  = "Congratulations to the top new emojis from last week (sorted by emoji reactions from %v voters):\n"
+	introMessage              = "Here are all the new emojis! There are %v new emojis from %v people."
+	lastMessage               = "Vote for the best new emoji of the week by reacting here!"
+	lastMessagePrevious       = "React here with the best new emojis!"
+	topAllTimeMessage         = "Top Emoji Uploaders of All Time:"
+	topThisWeekMessage        = "Top Emoji Uploaders This Week:"
+	topSecondMessage          = "More Top Emoji Uploaders:"
+	newUploadersMessage       = "Welcome to %d New Emoji Uploaders!"
+	newUploadersSecondMessage = "More New Emoji Uploaders:"
+	muteMessage               = "If you do not want to be pinged by this bot, message @%s to request that you be added to the mute list so the script prints your name without the @ sign.\n"
+	skipMessage               = "If you want to be excluded from the bot all together, you can ask @%s to add you to the skip list.\n"
 )
 
 func mostRecentEmojis(response *SlackEmojiResponseMessage) error {
 	var allNewEmojis []string
-	people := map[string]*stringCount{}
+	response.peopleThisWeek = map[string]*stringCount{}
 	var foundLastEmoji bool
 	lastNewEmojiSanitized := strings.ReplaceAll(lastNewEmoji, ":", "")
 
@@ -159,9 +162,9 @@ func mostRecentEmojis(response *SlackEmojiResponseMessage) error {
 			foundLastEmoji = true
 			break
 		}
-		count, ok := people[emoji.UserId]
+		count, ok := response.peopleThisWeek[emoji.UserId]
 		if !ok {
-			people[emoji.UserId] = &stringCount{
+			response.peopleThisWeek[emoji.UserId] = &stringCount{
 				name:  emoji.UserDisplayName,
 				id:    emoji.UserId,
 				count: 1,
@@ -205,10 +208,9 @@ func mostRecentEmojis(response *SlackEmojiResponseMessage) error {
 		} else {
 			j++
 		}
-
 	}
 
-	_, err := printMessage(MSG_TYPE__SEND, printer.Sprintf(introMessage, len(allNewEmojis), len(people)))
+	_, err := printMessage(MSG_TYPE__SEND, printer.Sprintf(introMessage, len(allNewEmojis), len(response.peopleThisWeek)))
 	if err != nil {
 		return err
 	}
@@ -220,7 +222,7 @@ func mostRecentEmojis(response *SlackEmojiResponseMessage) error {
 		}
 	}
 	var peopleNameArray []string
-	for _, person := range people {
+	for _, person := range response.peopleThisWeek {
 		peopleNameArray = append(peopleNameArray, person.name)
 	}
 
@@ -242,7 +244,7 @@ func mostRecentEmojis(response *SlackEmojiResponseMessage) error {
 		return err
 	}
 
-	return printTopPeople(topThisWeekMessage, people, math.MaxInt64, false)
+	return printTopPeople(topThisWeekMessage, topSecondMessage, response.peopleThisWeek, math.MaxInt64, false)
 }
 
 type EmojiUploadDateSort []*emoji
