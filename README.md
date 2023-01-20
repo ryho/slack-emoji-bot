@@ -12,6 +12,9 @@ Features:
 - Detection of deleted emojis.
 - Caches all emoji images.
 - April fools mode to send all emojis as a broken image emoji.
+- Emojis year in review feature to print the top emojis from the past year.
+- Post count of he-brings-you-X emojis.
+- More emojis are used in the messages.
 
 TODO:
 - Get top voted emojis of the year.

@@ -33,7 +33,7 @@ func dealWithLastWeekMessages(allEmojis *SlackEmojiResponseMessage) error {
 		return err
 	}
 	if !skipTopEmojisByReactionVote {
-		err = printTopEmojisByReactionVote(reactionMessage, allEmojis)
+		err = printTopEmojisByReactionVote(allEmojis, false, 10, reactionMessage)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func findLastWeekMessages(emojiChannelData *slack.Channel) (*slack.Message, *sla
 			break
 		}
 		for i, message := range messages.Messages {
-			if message.Text == lastMessage || message.Text == lastMessagePrevious {
+			if message.Text == votePrompt || message.Text == votePromptPrevious {
 				reactionMessage = message
 				foundOne = true
 				if len(messages.Messages) >= i {
@@ -80,21 +80,28 @@ func findLastWeekMessages(emojiChannelData *slack.Channel) (*slack.Message, *sla
 		if foundBoth {
 			break
 		}
-		if len(messages.ResponseMetadata.Cursor) == 0 {
+		if len(messages.ResponseMetaData.NextCursor) == 0 {
 			return nil, nil, errors.New("Unable to find message in channel " + emojiChannel)
 		}
 		// Check if we have looked through 15 days
-		seconds, err := strconv.ParseFloat(messages.Messages[len(messages.Messages)-1].Timestamp, 64)
+		lastMessageTime, err := timeFromMessage(&messages.Messages[len(messages.Messages)-1])
 		if err != nil {
 			return nil, nil, err
 		}
-		lastMessageTime := time.Unix(0, int64(float64(time.Second)*seconds))
 		if time.Since(lastMessageTime) > time.Hour*24*15 {
 			return nil, nil, errors.New("Unable to find message in channel " + emojiChannel + " in the last 15 days")
 		}
-		conversationParams.Cursor = messages.ResponseMetadata.Cursor
+		conversationParams.Cursor = messages.ResponseMetaData.NextCursor
 	}
 	return &reactionMessage, &lastEmojiMessage, nil
+}
+
+func timeFromMessage(message *slack.Message) (time.Time, error) {
+	seconds, err := strconv.ParseFloat(message.Timestamp, 64)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Unix(0, int64(float64(time.Second)*seconds)), nil
 }
 
 func getChannel(channelName string) (*slack.Channel, error) {
@@ -133,14 +140,15 @@ func getChannel(channelName string) (*slack.Channel, error) {
 	return &emojiChannelData, nil
 }
 
-// This takes in the copied text of a message from Slack, and prints the top Emoji reactions.
-func printTopEmojisByReactionVote(message *slack.Message, allEmojis *SlackEmojiResponseMessage) error {
+func printTopEmojisByReactionVote(allEmojis *SlackEmojiResponseMessage, doEmojisWrapped bool, maxPrintCount int, messages ...*slack.Message) error {
 	var emojis []*stringCount
 	uniqueUsers := util.StringSet{}
-	for _, reaction := range message.Reactions {
-		emojis = append(emojis, &stringCount{name: reaction.Name, count: reaction.Count})
-		for _, user := range reaction.Users {
-			uniqueUsers[user] = util.SetEntry{}
+	for _, message := range messages {
+		for _, reaction := range message.Reactions {
+			emojis = append(emojis, &stringCount{name: reaction.Name, count: reaction.Count})
+			for _, user := range reaction.Users {
+				uniqueUsers[user] = util.SetEntry{}
+			}
 		}
 	}
 	sort.Sort(ByCount(emojis))
@@ -148,7 +156,6 @@ func printTopEmojisByReactionVote(message *slack.Message, allEmojis *SlackEmojiR
 	printedCount := 0
 	previousCount := math.MaxInt64
 
-	maxPrintCount := 10
 	minReaction := 3
 	var creators []string
 	var counts []int
@@ -177,5 +184,12 @@ func printTopEmojisByReactionVote(message *slack.Message, allEmojis *SlackEmojiR
 		printedCount++
 	}
 
-	return printTopCreators(fmt.Sprintf(lastWeek, len(uniqueUsers)), creators, counts, printedEmojis)
+	peopleToPrint := TopPeopleToPrint
+	message := lastWeek
+	if doEmojisWrapped {
+		peopleToPrint = 20
+		message = lastYear
+	}
+
+	return printTopCreators(fmt.Sprintf(message, len(uniqueUsers)), peopleToPrint, creators, counts, printedEmojis)
 }

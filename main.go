@@ -60,7 +60,10 @@ const (
 
 	// This controls if things are printed, DMed or posted publicly.
 	// See values below.
-	runMode Mode = MODE__PRINT_EVERYTHING
+	runMode Mode = MODE__FULL_SEND
+
+	doEmojisWrapped      = false
+	doHeBringsYouCounter = true
 )
 
 // END of things you should edit
@@ -77,11 +80,22 @@ const (
 
 func main() {
 	start := time.Now()
+	defer func() {
+		fmt.Printf("Time spent: %v\n", time.Since(start))
+	}()
 	slackApi = slack.New(botOauthToken)
 
 	allEmojis, err := getAllEmojis()
 	if err != nil {
 		panic(err)
+	}
+
+	if doEmojisWrapped {
+		err = emojisWrapped(allEmojis)
+		if err != nil {
+			panic(err)
+		}
+		return
 	}
 
 	// This will get the last new emoji, and print the top emojis reactions.
@@ -113,14 +127,20 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	if doHeBringsYouCounter {
+		err = bringsYouCounter(allEmojis)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	if findLongestEmojisAllTime {
 		err = longestEmojis(allEmojis)
 		if err != nil {
 			panic(err)
 		}
 	}
-
-	fmt.Printf("Time spent: %v", time.Since(start))
 }
 
 var (
@@ -136,14 +156,15 @@ const (
 	maxCharactersPerMessage   = 10000
 	TopPeopleToPrint          = 5
 
-	lastWeek                  = "Congratulations to the top new emojis from last week (sorted by emoji reactions from %v voters):\n"
-	introMessage              = "Here are all the new emojis! There are %v new emojis from %v people."
-	lastMessage               = "Vote for the best new emoji of the week by reacting here!"
-	lastMessagePrevious       = "React here with the best new emojis!"
-	topAllTimeMessage         = "Top Emoji Uploaders of All Time:"
-	topThisWeekMessage        = "Top Emoji Uploaders This Week:"
+	lastWeek                  = ":trophy: *Congratulations* to the top new emojis from last week (sorted by emoji reactions from %v voters):\n"
+	lastYear                  = ":trophy::trophy::trophy: *CONGRATULATIONS TO THE TOP EMOJIS OF 2022!!!* (sorted by emoji reactions from %v voters):\n"
+	introMessage              = ":new-shine: Here are all the new emojis! There are %v new emojis from %v people."
+	votePrompt                = ":votesticker: *Vote for the best new emoji of the week by reacting here!*"
+	votePromptPrevious        = "Vote for the best new emoji of the week by reacting here!"
+	topAllTimeMessage         = ":tophat: Top Emoji Uploaders of All Time:"
+	topThisWeekMessage        = ":rocket: Top Emoji Uploaders This Week:"
 	topSecondMessage          = "More Top Emoji Uploaders:"
-	newUploadersMessage       = "Welcome to %d New Emoji Uploaders!"
+	newUploadersMessage       = ":welcome: *Welcome* to %d New Emoji Uploaders!"
 	newUploadersSecondMessage = "More New Emoji Uploaders:"
 	muteMessage               = "If you do not want to be pinged by this bot, message @%s to request that you be added to the mute list so the script prints your name without the @ sign.\n"
 	skipMessage               = "If you want to be excluded from the bot all together, you can ask @%s to add you to the skip list.\n"
@@ -210,7 +231,7 @@ func mostRecentEmojis(response *SlackEmojiResponseMessage) error {
 		}
 	}
 
-	_, err := printMessage(MSG_TYPE__SEND, printer.Sprintf(introMessage, len(allNewEmojis), len(response.peopleThisWeek)))
+	_, err := printMessage(MSG_TYPE__SEND_AND_REVIEW, printer.Sprintf(introMessage, len(allNewEmojis), len(response.peopleThisWeek)))
 	if err != nil {
 		return err
 	}
@@ -226,7 +247,7 @@ func mostRecentEmojis(response *SlackEmojiResponseMessage) error {
 		peopleNameArray = append(peopleNameArray, person.name)
 	}
 
-	threadId, err := printMessage(MSG_TYPE__SEND, lastMessage)
+	threadId, err := printMessage(MSG_TYPE__SEND, votePrompt)
 	if err != nil {
 		return err
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -10,7 +11,7 @@ import (
 
 const (
 	emojiListUrl = "https://square.slack.com/api/emoji.adminList"
-	pageSize     = 20000
+	pageSize     = 10000
 )
 
 type SlackEmojiResponseMessage struct {
@@ -90,12 +91,18 @@ func getEmojis(page int) ([]byte, error) {
 	return bodyBytes, nil
 }
 
-func parseEmojiResponse(response []byte) (*SlackEmojiResponseMessage, error) {
-	var responseParsed SlackEmojiResponseMessage
+func parseEmojiResponse(response []byte) (responseParsed *SlackEmojiResponseMessage, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Error parsing emoji response: %v", string(response))
+		}
+	}()
+	//fmt.Printf("Parsing response: %v\n", string(response))
+	responseParsed = &SlackEmojiResponseMessage{}
 	responseParsed.Emoji = make([]*emoji, 0, pageSize)
-	err := json.Unmarshal(response, &responseParsed)
+	err = json.Unmarshal(response, responseParsed)
 	if err != nil {
 		return nil, err
 	}
-	return &responseParsed, nil
+	return responseParsed, nil
 }

@@ -157,7 +157,7 @@ func printTopPeople(firstMessage, secondMessage string, people map[string]*strin
 	return err
 }
 
-func printTopCreators(message string, peopleIds []string, reactions []int, emojis []string) error {
+func printTopCreators(message string, TopPeopleToPrint int, peopleIds []string, reactions []int, emojis []string) error {
 	var firstMessage, secondMessage string
 	firstMessage = message
 	secondMessage = "More Top Uploaders\n"
