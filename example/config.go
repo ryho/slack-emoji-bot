@@ -21,6 +21,9 @@ const botOauthToken = "TODO"
 // TODO: Explain how to get this
 const ownerUserOauthToken = `TODO`
 
+// TODO: Explain how to get this
+const ownerUserCookie = ``
+
 // People really dislike pictures of some frog.
 // Sometimes you have to keep the peace...
 // Can be specified with or without the colons.

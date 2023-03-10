@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -16,6 +17,7 @@ const (
 
 type SlackEmojiResponseMessage struct {
 	Ok                    bool           `json:"ok"`
+	Error                 string         `json:"error"`
 	Emoji                 []*emoji       `json:"emoji"`
 	CustomEmojiTotalCount int64          `json:"custom_emoji_total_count"`
 	Paging                PagingResponse `json:"paging"`
@@ -80,7 +82,14 @@ func getEmojis(page int) ([]byte, error) {
 	vals.Set("sort_by", "created")
 	vals.Set("sort_dir", "desc")
 	vals.Set("_x_mode", "online")
-	resp, err := http.PostForm(emojiListUrl, vals)
+
+	req, err := http.NewRequest("POST", emojiListUrl, strings.NewReader(vals.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("cookie", ownerUserCookie)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -103,6 +112,9 @@ func parseEmojiResponse(response []byte) (responseParsed *SlackEmojiResponseMess
 	err = json.Unmarshal(response, responseParsed)
 	if err != nil {
 		return nil, err
+	}
+	if !responseParsed.Ok {
+		return nil, fmt.Errorf("recieved error from Slack: %v", responseParsed.Error)
 	}
 	return responseParsed, nil
 }
