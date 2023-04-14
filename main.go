@@ -20,7 +20,7 @@ const (
 	// The only use of cashing all images is to see what deleted emojis were.
 	// After all emojis have been downloaded the first time, this will only download new emojis.
 	// You can also download the image for a deleted emoji if it has not been deleted for very long.
-	cacheImages = true
+	cacheImages = false
 
 	// This controls if the JSON blob of all current emojis is cached. This is only used for detecting
 	// deleted emojis.
