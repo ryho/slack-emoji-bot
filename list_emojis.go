@@ -12,8 +12,17 @@ import (
 
 const (
 	emojiListUrl = "https://square.slack.com/api/emoji.adminList"
-	pageSize     = 10000
 )
+
+var (
+	pageSize = 10000
+)
+
+func init() {
+	if fastMode {
+		pageSize = 1000
+	}
+}
 
 type SlackEmojiResponseMessage struct {
 	Ok                    bool           `json:"ok"`
@@ -46,6 +55,7 @@ type emoji struct {
 func getAllEmojis() (*SlackEmojiResponseMessage, error) {
 	var allEmojis, currentPage *SlackEmojiResponseMessage
 	for page := 1; currentPage == nil || page <= currentPage.Paging.Pages; page++ {
+		fmt.Printf("Getting page %v\n", page)
 		commandResponse, err := getEmojis(page)
 		if err != nil {
 			return nil, err
@@ -58,6 +68,47 @@ func getAllEmojis() (*SlackEmojiResponseMessage, error) {
 			allEmojis = currentPage
 		} else {
 			allEmojis.Emoji = append(allEmojis.Emoji, currentPage.Emoji...)
+		}
+	}
+	if cacheEmojiDumps {
+		err := cacheEmojiResponse(allEmojis)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	allEmojis.emojiMap = make(map[string]*emoji, len(allEmojis.Emoji))
+	for i, emoji := range allEmojis.Emoji {
+		allEmojis.emojiMap[emoji.Name] = allEmojis.Emoji[i]
+	}
+	return allEmojis, nil
+}
+
+func getEmojisBackTo(lastEmoji string) (*SlackEmojiResponseMessage, error) {
+	var allEmojis, currentPage *SlackEmojiResponseMessage
+	for page := 1; currentPage == nil || page <= currentPage.Paging.Pages; page++ {
+		fmt.Printf("Getting page %v\n", page)
+		commandResponse, err := getEmojis(page)
+		if err != nil {
+			return nil, err
+		}
+		currentPage, err = parseEmojiResponse(commandResponse)
+		if err != nil {
+			return nil, err
+		}
+		if allEmojis == nil {
+			allEmojis = currentPage
+		} else {
+			allEmojis.Emoji = append(allEmojis.Emoji, currentPage.Emoji...)
+		}
+		stop := false
+		for _, emoji := range currentPage.Emoji {
+			if emoji.Name == lastEmoji {
+				stop = true
+			}
+		}
+		if stop {
+			break
 		}
 	}
 	if cacheEmojiDumps {

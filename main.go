@@ -62,8 +62,12 @@ const (
 	// See values below.
 	runMode Mode = MODE__FULL_SEND
 
+	// When doing Emojis Wrapped, fast mode is ignored
 	doEmojisWrapped      = false
 	doHeBringsYouCounter = true
+	// FastMode will not fetch all emojis, just the ones since the last emoji post.
+	// Detecting deleted emojis is not possible in fast mode.
+	fastMode = true
 )
 
 // END of things you should edit
@@ -85,9 +89,30 @@ func main() {
 	}()
 	slackApi = slack.New(botOauthToken)
 
-	allEmojis, err := getAllEmojis()
+	// This will get the last new emoji.
+	err := dealWithLastWeekMessages()
 	if err != nil {
 		panic(err)
+	}
+
+	var allEmojis *SlackEmojiResponseMessage
+	if !fastMode || doEmojisWrapped {
+		allEmojis, err = getAllEmojis()
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		allEmojis, err = getEmojisBackTo(previousLastNewEmoji)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	if !skipTopEmojisByReactionVote {
+		err = printTopEmojisByReactionVote(allEmojis, false, 10, reactionMessage)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	if doEmojisWrapped {
@@ -98,21 +123,17 @@ func main() {
 		return
 	}
 
-	// This will get the last new emoji, and print the top emojis reactions.
-	err = dealWithLastWeekMessages(allEmojis)
-	if err != nil {
-		panic(err)
-	}
-
 	// cacheEmojiImages and detectDeletedEmojis should be called before removeSkippedEmojis
 	err = cacheEmojiImages(allEmojis)
 	if err != nil {
 		panic(err)
 	}
 
-	err = detectDeletedEmojis(allEmojis)
-	if err != nil {
-		panic(err)
+	if !fastMode {
+		err = detectDeletedEmojis(allEmojis)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	removeSkippedEmojis(allEmojis)
@@ -144,9 +165,10 @@ func main() {
 }
 
 var (
-	slackApi     *slack.Client
-	printer      = message.NewPrinter(language.English)
-	lastNewEmoji string
+	slackApi                           *slack.Client
+	printer                            = message.NewPrinter(language.English)
+	lastNewEmoji, previousLastNewEmoji string
+	reactionMessage                    *slack.Message
 )
 
 const (
@@ -157,7 +179,7 @@ const (
 	TopPeopleToPrint          = 5
 
 	lastWeek                  = ":trophy: *Congratulations* to the top new emojis from last week (sorted by emoji reactions from %v voters):\n"
-	lastYear                  = ":trophy::trophy::trophy: *CONGRATULATIONS TO THE TOP EMOJIS OF 2022!!!* (sorted by emoji reactions from %v voters):\n"
+	lastYear                  = ":trophy::trophy::trophy: *CONGRATULATIONS TO THE TOP EMOJIS OF %v!!!* (sorted by emoji reactions from %v voters):\n"
 	introMessage              = ":new-shine: Here are all the new emojis! There are %v new emojis from %v people."
 	votePrompt                = ":votesticker: *Vote for the best new emoji of the week by reacting here!*"
 	votePromptPrevious        = "Vote for the best new emoji of the week by reacting here!"

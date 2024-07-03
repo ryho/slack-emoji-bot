@@ -121,10 +121,46 @@ func sendMessage(dest, text, threadId string) (string, error) {
 		if err2 != nil || sleepTime == 0 {
 			return "", err
 		} else {
-			fmt.Printf("Sleeing for %d seconds per rate limit message\n", sleepTime)
+			fmt.Printf("Sleeping for %d seconds per rate limit message\n", sleepTime)
 			time.Sleep(sleepTime * time.Second)
 			_, msgId, err = slackApi.PostMessage(dest, options...)
 		}
 	}
 	return msgId, err
+}
+
+func GetConversationsWithBackoff(channelsParams *slack.GetConversationsParameters) (channels []slack.Channel, nextCursor string, err error) {
+	channels, nextCursor, err = slackApi.GetConversations(channelsParams)
+	if err != nil {
+		// If we got rate limited, wait the amount of time that it recommends.
+		var sleepTime time.Duration
+		_, err2 := fmt.Sscanf(err.Error(), slackRateLimitFormat, &sleepTime)
+		if err2 != nil || sleepTime == 0 {
+			return nil, "", err
+		} else {
+			fmt.Printf("Sleeping for %d seconds per rate limit message\n", sleepTime)
+			time.Sleep(sleepTime * time.Second)
+			channels, nextCursor, err = slackApi.GetConversations(channelsParams)
+		}
+	}
+
+	return channels, nextCursor, err
+}
+
+func GetConversationHistoryWithBackoff(channelsParams *slack.GetConversationHistoryParameters) (resp *slack.GetConversationHistoryResponse, err error) {
+	resp, err = slackApi.GetConversationHistory(channelsParams)
+	if err != nil {
+		// If we got rate limited, wait the amount of time that it recommends.
+		var sleepTime time.Duration
+		_, err2 := fmt.Sscanf(err.Error(), slackRateLimitFormat, &sleepTime)
+		if err2 != nil || sleepTime == 0 {
+			return nil, err
+		} else {
+			fmt.Printf("Sleeping for %d seconds per rate limit message\n", sleepTime)
+			time.Sleep(sleepTime * time.Second)
+			resp, err = slackApi.GetConversationHistory(channelsParams)
+		}
+	}
+
+	return resp, err
 }

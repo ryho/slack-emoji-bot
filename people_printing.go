@@ -104,12 +104,12 @@ func printTopPeople(firstMessage, secondMessage string, people map[string]*strin
 		if !ok {
 			return fmt.Errorf("could not find user %v %v", peopleCountArray[i].id, peopleCountArray[i].name)
 		}
-		if _, ok := skipLDAPs[user.Name]; ok {
+		if _, ok := skipLDAPs[user.Profile.DisplayName]; ok {
 			// This skips the user so they do not show up at all.
 			skipCorrection++
 			continue
 		}
-		if _, ok := muteLDAPs[user.Name]; ok {
+		if _, ok := muteLDAPs[user.Profile.DisplayName]; ok {
 			// This prints the LDAP with no @ sign, so they will not be pinged.
 			if i < TopPeopleToPrint {
 				firstMessage += printer.Sprintf("%d. %s (%s) %d\n", i+1-skipCorrection, peopleCountArray[i].name, user.Name, peopleCountArray[i].count)
@@ -170,10 +170,10 @@ func printTopCreators(message string, TopPeopleToPrint int, peopleIds []string, 
 		if !ok {
 			return fmt.Errorf("could not find user %v", peopleId)
 		}
-		if _, ok := skipLDAPs[user.Name]; ok {
+		if _, ok := skipLDAPs[user.Profile.DisplayName]; ok {
 			continue
 		}
-		if _, ok := muteLDAPs[user.Name]; ok {
+		if _, ok := muteLDAPs[user.Profile.DisplayName]; ok {
 			// This prints the LDAP with no @ sign, so they will not be pinged.
 			if i < TopPeopleToPrint {
 				firstMessage += printer.Sprintf("%d. %s (%s) :%s: %d\n", i+1, user.RealName, user.Name, emojis[i], reactions[i])
