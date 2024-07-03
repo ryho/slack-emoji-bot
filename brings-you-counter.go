@@ -35,8 +35,17 @@ func bringsYouCounter(response *SlackEmojiResponseMessage) error {
 	} else {
 		startEmoji = ":he-brings-you-metrics:"
 	}
-	randomBufoEmoji := bufoEmojis[rand.Intn(len(bufoEmojis))]
-	randomBringsYouEmoji := bringsYouEmojis[rand.Intn(len(bringsYouEmojis))]
+	var randomBufoEmoji, randomBringsYouEmoji string
+	if len(bufoEmojis) == 0 {
+		randomBufoEmoji = ":bufo-sad-swinging:"
+	} else {
+		randomBufoEmoji = bufoEmojis[rand.Intn(len(bufoEmojis))]
+	}
+	if len(bringsYouEmojis) == 0 {
+		randomBringsYouEmoji = ":he-brings-you-sadness: "
+	} else {
+		randomBringsYouEmoji = bringsYouEmojis[rand.Intn(len(bringsYouEmojis))]
+	}
 	var err error
 	if fastMode {
 		_, err = printMessage(MSG_TYPE__SEND_AND_REVIEW,
