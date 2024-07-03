@@ -14,29 +14,25 @@ import (
 	"github.com/slack-go/slack"
 )
 
-func dealWithLastWeekMessages(allEmojis *SlackEmojiResponseMessage) error {
+func dealWithLastWeekMessages() error {
 	if overRideLastNewEmoji != "" {
 		// If overriding the last new emoji, assume that we are also not
 		// able to get last week's votes.
 		lastNewEmoji = overRideLastNewEmoji
+		previousLastNewEmoji = overRideLastNewEmoji
 		return nil
 	}
 	// Get the emojis channel
-	emojiChannelData, err := getChannel(emojiChannel)
+	emojiChannelId, err := getChannel(emojiChannel)
 	if err != nil {
 		return err
 	}
 
 	// Get the two messages that we need
-	reactionMessage, lastEmojiMessage, err := findLastWeekMessages(emojiChannelData)
+	message, lastEmojiMessage, previousLastEmojiMessage, err := findLastWeekMessages(emojiChannelId)
+	reactionMessage = message
 	if err != nil {
 		return err
-	}
-	if !skipTopEmojisByReactionVote {
-		err = printTopEmojisByReactionVote(allEmojis, false, 10, reactionMessage)
-		if err != nil {
-			return err
-		}
 	}
 	// Find the last emoji that was posted last week.
 	parts := strings.Split(lastEmojiMessage.Text, ":")
@@ -44,56 +40,76 @@ func dealWithLastWeekMessages(allEmojis *SlackEmojiResponseMessage) error {
 		return fmt.Errorf("Unable to get last emoji from message %v", lastEmojiMessage)
 	}
 	lastNewEmoji = parts[len(parts)-2]
+	parts = strings.Split(previousLastEmojiMessage.Text, ":")
+	if len(parts) < 2 {
+		return fmt.Errorf("Unable to get last emoji from message %v", lastEmojiMessage)
+	}
+	previousLastNewEmoji = parts[len(parts)-2]
 	return nil
 }
 
-func findLastWeekMessages(emojiChannelData *slack.Channel) (*slack.Message, *slack.Message, error) {
+func findLastWeekMessages(emojiChannelId string) (*slack.Message, *slack.Message, *slack.Message, error) {
 	conversationParams := &slack.GetConversationHistoryParameters{
-		ChannelID: emojiChannelData.ID,
+		ChannelID: emojiChannelId,
 	}
-	var reactionMessage, lastEmojiMessage slack.Message
-	var foundOne, foundBoth bool
+	var reactionMessage, lastEmojiMessage, previousWeekLastEmojiMessage slack.Message
+	var foundOne, foundTwo, foundThree, foundFour bool
 	for true {
-		messages, err := slackApi.GetConversationHistory(conversationParams)
+		messages, err := GetConversationHistoryWithBackoff(conversationParams)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
-		if foundOne {
+		if foundOne && !foundTwo {
 			if len(messages.Messages) == 0 {
-				return nil, nil, errors.New("Unable to find message " + emojiChannel)
+				return nil, nil, nil, errors.New("Unable to find message " + emojiChannel)
 			}
 			lastEmojiMessage = messages.Messages[0]
-			foundBoth = true
-			break
+			foundTwo = true
+		}
+		if foundThree && !foundFour {
+			if len(messages.Messages) == 0 {
+				return nil, nil, nil, errors.New("Unable to find message " + emojiChannel)
+			}
+			lastEmojiMessage = messages.Messages[0]
+			foundTwo = true
 		}
 		for i, message := range messages.Messages {
 			if message.Text == votePrompt || message.Text == votePromptPrevious {
-				reactionMessage = message
-				foundOne = true
-				if len(messages.Messages) >= i {
-					lastEmojiMessage = messages.Messages[i+1]
-					foundBoth = true
-					break
+				if !foundOne {
+					reactionMessage = message
+					foundOne = true
+					if len(messages.Messages) >= i {
+						lastEmojiMessage = messages.Messages[i+1]
+						foundTwo = true
+					}
+				} else {
+					previousWeekLastEmojiMessage = message
+					foundThree = true
+					if len(messages.Messages) >= i {
+						previousWeekLastEmojiMessage = messages.Messages[i+1]
+						foundFour = true
+						break
+					}
 				}
 			}
 		}
-		if foundBoth {
+		if foundFour {
 			break
 		}
 		if len(messages.ResponseMetaData.NextCursor) == 0 {
-			return nil, nil, errors.New("Unable to find message in channel " + emojiChannel)
+			return nil, nil, nil, errors.New("Unable to find message in channel " + emojiChannel)
 		}
 		// Check if we have looked through 15 days
 		lastMessageTime, err := timeFromMessage(&messages.Messages[len(messages.Messages)-1])
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
-		if time.Since(lastMessageTime) > time.Hour*24*15 {
-			return nil, nil, errors.New("Unable to find message in channel " + emojiChannel + " in the last 15 days")
+		if time.Since(lastMessageTime) > time.Hour*24*16 {
+			return nil, nil, nil, errors.New("Unable to find message in channel " + emojiChannel + " in the last 15 days")
 		}
 		conversationParams.Cursor = messages.ResponseMetaData.NextCursor
 	}
-	return &reactionMessage, &lastEmojiMessage, nil
+	return &reactionMessage, &lastEmojiMessage, &previousWeekLastEmojiMessage, nil
 }
 
 func timeFromMessage(message *slack.Message) (time.Time, error) {
@@ -104,9 +120,12 @@ func timeFromMessage(message *slack.Message) (time.Time, error) {
 	return time.Unix(0, int64(float64(time.Second)*seconds)), nil
 }
 
-func getChannel(channelName string) (*slack.Channel, error) {
+func getChannel(channelName string) (string, error) {
 	if len(channelName) == 0 {
-		return nil, errors.New("No channel name provided")
+		return "", errors.New("No channel name provided")
+	}
+	if cachedChannelID != "" {
+		return cachedChannelID, nil
 	}
 	if channelName[0] == '#' {
 		channelName = channelName[1:]
@@ -117,9 +136,9 @@ func getChannel(channelName string) (*slack.Channel, error) {
 	}
 	var emojiChannelData slack.Channel
 	for true {
-		channels, cursor, err := slackApi.GetConversations(channelsParams)
+		channels, cursor, err := GetConversationsWithBackoff(channelsParams)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		var found bool
 		for _, channel := range channels {
@@ -133,11 +152,12 @@ func getChannel(channelName string) (*slack.Channel, error) {
 			break
 		}
 		if cursor == "" {
-			return nil, errors.New("Unable to find channel " + emojiChannel)
+			return "", errors.New("Unable to find channel " + emojiChannel)
 		}
 		channelsParams.Cursor = cursor
 	}
-	return &emojiChannelData, nil
+	fmt.Printf("Found Channel ID: %v. You can set this in cachedChannelID in config.go for faster run times.\n", emojiChannelData.ID)
+	return emojiChannelData.ID, nil
 }
 
 func printTopEmojisByReactionVote(allEmojis *SlackEmojiResponseMessage, doEmojisWrapped bool, maxPrintCount int, messages ...*slack.Message) error {
@@ -185,11 +205,16 @@ func printTopEmojisByReactionVote(allEmojis *SlackEmojiResponseMessage, doEmojis
 	}
 
 	peopleToPrint := TopPeopleToPrint
-	message := lastWeek
+	message := fmt.Sprintf(lastWeek, len(uniqueUsers))
 	if doEmojisWrapped {
 		peopleToPrint = 20
-		message = lastYear
+		rightNow := time.Now()
+		year := rightNow.Year()
+		if rightNow.Month() == time.January {
+			year--
+		}
+		message = fmt.Sprintf(lastYear, year, len(uniqueUsers))
 	}
 
-	return printTopCreators(fmt.Sprintf(message, len(uniqueUsers)), peopleToPrint, creators, counts, printedEmojis)
+	return printTopCreators(message, peopleToPrint, creators, counts, printedEmojis)
 }

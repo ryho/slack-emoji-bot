@@ -10,11 +10,11 @@ import (
 
 func emojisWrapped(allEmojis *SlackEmojiResponseMessage) error {
 	// Get the emojis channel
-	emojiChannelData, err := getChannel(emojiChannel)
+	emojiChannelID, err := getChannel(emojiChannel)
 	if err != nil {
 		return err
 	}
-	messages, err := findAllVotePrompts(emojiChannelData)
+	messages, err := findAllVotePrompts(emojiChannelID)
 	if err != nil {
 		return err
 	}
@@ -34,13 +34,13 @@ func emojisWrapped(allEmojis *SlackEmojiResponseMessage) error {
 	return printTopEmojisByReactionVote(allEmojis, true, 100, messages...)
 }
 
-func findAllVotePrompts(emojiChannelData *slack.Channel) ([]*slack.Message, error) {
+func findAllVotePrompts(emojiChannelId string) ([]*slack.Message, error) {
 	conversationParams := &slack.GetConversationHistoryParameters{
-		ChannelID: emojiChannelData.ID,
+		ChannelID: emojiChannelId,
 	}
 	var reactionMessages []*slack.Message
 	for true {
-		messages, err := slackApi.GetConversationHistory(conversationParams)
+		messages, err := GetConversationHistoryWithBackoff(conversationParams)
 		if err != nil {
 			return nil, err
 		}
