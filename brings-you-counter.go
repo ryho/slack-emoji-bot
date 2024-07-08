@@ -37,12 +37,12 @@ func bringsYouCounter(response *SlackEmojiResponseMessage) error {
 	}
 	var randomBufoEmoji, randomBringsYouEmoji string
 	if len(bufoEmojis) == 0 {
-		randomBufoEmoji = ":bufo-sad-swinging:"
+		randomBufoEmoji = "bufo-sad-swinging"
 	} else {
 		randomBufoEmoji = bufoEmojis[rand.Intn(len(bufoEmojis))]
 	}
 	if len(bringsYouEmojis) == 0 {
-		randomBringsYouEmoji = ":he-brings-you-sadness: "
+		randomBringsYouEmoji = "he-brings-you-sadness"
 	} else {
 		randomBringsYouEmoji = bringsYouEmojis[rand.Intn(len(bringsYouEmojis))]
 	}
