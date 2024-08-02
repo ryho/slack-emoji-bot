@@ -66,6 +66,11 @@ func topAndNewUploaders(response *SlackEmojiResponseMessage) error {
 		return err
 	}
 
+	if fastMode {
+		// The new uploaders feature doesn't work in fast mode.
+		return nil
+	}
+
 	// Find people who uploaded for the first time.
 	newPeopleThisWeek := map[string]*stringCount{}
 	for _, uploadThisWeek := range response.peopleThisWeek {
