@@ -60,7 +60,7 @@ const (
 
 	// This controls if things are printed, DMed or posted publicly.
 	// See values below.
-	runMode Mode = MODE__FULL_SEND
+	runMode Mode = MODE__DM_FOR_REVIEW
 
 	// When doing Emojis Wrapped, fast mode is ignored
 	doEmojisWrapped      = false
@@ -150,7 +150,7 @@ func main() {
 	}
 
 	if doHeBringsYouCounter {
-		err = bringsYouCounter(allEmojis)
+		err = memeCounter(allEmojis)
 		if err != nil {
 			panic(err)
 		}

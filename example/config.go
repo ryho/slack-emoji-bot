@@ -40,3 +40,16 @@ var muteLDAPs = util.StringSet{
 var skipLDAPs = util.StringSet{
 	"TODO": {},
 }
+
+const genericSadEmoji = "todo"
+
+var EmojiMemes = []EmojiMeme{
+	{
+		EmojiName: "Todo",
+		SubStrings: []string{
+			"topo",
+		},
+		StartEmoji:  "todo-happy",
+		NoNewEmojis: "todo-sad",
+	},
+}
