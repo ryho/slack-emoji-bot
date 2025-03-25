@@ -71,7 +71,7 @@ func getAllEmojis() (*SlackEmojiResponseMessage, error) {
 		}
 	}
 	if cacheEmojiDumps {
-		err := cacheEmojiResponse(allEmojis)
+		err := cacheEmojiResponse(allEmojis, true)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +112,7 @@ func getEmojisBackTo(lastEmoji string) (*SlackEmojiResponseMessage, error) {
 		}
 	}
 	if cacheEmojiDumps {
-		err := cacheEmojiResponse(allEmojis)
+		err := cacheEmojiResponse(allEmojis, false)
 		if err != nil {
 			return nil, err
 		}

@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	snapshotDir = "/Documents/emojiSnapshots/"
-	imagesDir   = snapshotDir + "images/"
+	snapshotDir      = "/Documents/emojiSnapshots/"
+	imagesDir        = snapshotDir + "images/"
+	fullSnapshotName = "fullSnapshot-"
 )
 
 func ensureDirExists(path string) error {
@@ -29,7 +30,7 @@ func ensureDirExists(path string) error {
 	return nil
 }
 
-func cacheEmojiResponse(commandResponse *SlackEmojiResponseMessage) error {
+func cacheEmojiResponse(commandResponse *SlackEmojiResponseMessage, fullSnapshot bool) error {
 	userDir, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -42,7 +43,11 @@ func cacheEmojiResponse(commandResponse *SlackEmojiResponseMessage) error {
 	if err != nil {
 		return err
 	}
-	fileName := userDir + snapshotDir + time.Now().String() + ".json"
+	var fullSnapshotNamePlaceholder string
+	if fullSnapshot {
+		fullSnapshotNamePlaceholder = fullSnapshotName
+	}
+	fileName := userDir + snapshotDir + fullSnapshotNamePlaceholder + time.Now().String() + ".json"
 	return ioutil.WriteFile(fileName, responseBytes, 0644)
 }
 

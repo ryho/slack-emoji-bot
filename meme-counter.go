@@ -8,9 +8,9 @@ import (
 type EmojiMeme struct {
 	EmojiName string
 
-	SubStrings  []string
-	StartEmoji  string
-	NoNewEmojis string
+	SubStrings     []string
+	TopOfWeekEmoji string
+	NoNewEmojis    string
 }
 
 func memeCounter(response *SlackEmojiResponseMessage) error {
@@ -41,7 +41,7 @@ func memeCounter(response *SlackEmojiResponseMessage) error {
 	for i, emojiMeme := range EmojiMemes {
 		if len(newMemeEmojis[i]) > maxNewEmojis {
 			maxNewEmojis = len(newMemeEmojis[i])
-			startEmoji = emojiMeme.StartEmoji
+			startEmoji = emojiMeme.TopOfWeekEmoji
 		}
 	}
 

@@ -191,6 +191,10 @@ func printTopEmojisByReactionVote(allEmojis *SlackEmojiResponseMessage, doEmojis
 			break
 		}
 		emojisObj := allEmojis.emojiMap[emoji.name]
+		if emojisObj == nil {
+			fmt.Printf("Could not find emoji with name %v in map\n", emoji.name)
+			continue
+		}
 		creators = append(creators, emojisObj.UserId)
 		counts = append(counts, emoji.count)
 		var name string

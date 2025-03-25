@@ -26,6 +26,8 @@ const (
 	// deleted emojis.
 	cacheEmojiDumps = true
 
+	loadEmojiHistory = true
+
 	// Top uploaders of all time is noisy.
 	// I only send at the end of the year, if someone has recently moved up a lot, etc.
 	sendTopUploadersAllTime = false
@@ -60,7 +62,7 @@ const (
 
 	// This controls if things are printed, DMed or posted publicly.
 	// See values below.
-	runMode Mode = MODE__DM_FOR_REVIEW
+	runMode Mode = MODE__FULL_SEND
 
 	// When doing Emojis Wrapped, fast mode is ignored
 	doEmojisWrapped      = false
@@ -108,19 +110,19 @@ func main() {
 		}
 	}
 
-	if !skipTopEmojisByReactionVote {
-		err = printTopEmojisByReactionVote(allEmojis, false, 10, reactionMessage)
-		if err != nil {
-			panic(err)
-		}
-	}
-
 	if doEmojisWrapped {
 		err = emojisWrapped(allEmojis)
 		if err != nil {
 			panic(err)
 		}
 		return
+	}
+
+	if !skipTopEmojisByReactionVote {
+		err = printTopEmojisByReactionVote(allEmojis, false, 10, reactionMessage)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	// cacheEmojiImages and detectDeletedEmojis should be called before removeSkippedEmojis

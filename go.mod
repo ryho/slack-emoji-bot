@@ -3,8 +3,8 @@ module github.com/ryho/slack-emoji-bot
 go 1.17
 
 require (
+	github.com/slack-go/slack v0.13.1
 	golang.org/x/text v0.3.7
-	github.com/slack-go/slack v0.10.1
 )
 
 require (
